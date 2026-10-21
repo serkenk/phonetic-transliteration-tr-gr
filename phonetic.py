@@ -4,24 +4,20 @@ from tkinter import ttk
 
 
 def tr_to_greek(text: str) -> str:
-    # 1. 'nd' ve 'nt' bileşikleri (d ile karışmaması için)
+    # 1. 'nd' bileşikleri (d ile karışmaması için 'νντ')
     text = re.sub(r"nd", "νντ", text)
     text = re.sub(r"Nd", "Νντ", text)
     text = re.sub(r"ND", "ΝΝΤ", text)
 
-    # 2. İki ünlü arasındaki sert 'g' (ğ ile karışmaması için Grekçe 'γκ')
-    text = re.sub(r"(?<=[aeıioöuüAEIİOÖUÜ])g(?=[aeıioöuüAEIİOÖUÜ])", "γκ", text)
-    text = re.sub(r"(?<=[aeıioöuüAEIİOÖUÜ])G(?=[aeıioöuüAEIİOÖUÜ])", "Γκ", text)
-
-    # 3. Diftonglar ve fonetik ikililer
+    # 2. Diftonglar ve fonetik ikililer
     text = re.sub(r"(?i)va", "υα", text)
     text = re.sub(r"(?i)ev|ef", "ευ", text)
     text = re.sub(r"(?i)av\b|af\b", "αυ", text)
 
-    # 4. 'y' harfi -> 'ι' / 'Ι' (g harfi olan 'γ' ile karışmaması için)
+    # 3. 'y' harfi -> 'ι' / 'Ι' (g sesi 'γ' ile çakışmayı önlemek için)
     text = text.replace("y", "ι").replace("Y", "Ι")
 
-    # 5. Standart harf eşlemeleri
+    # 4. Standart harf eşlemeleri ('g' doğrudan 'γ')
     mapping = [
         ("ç", "τσ"),
         ("Ç", "Τσ"),
@@ -84,15 +80,13 @@ def tr_to_greek(text: str) -> str:
     for tr_char, gr_char in mapping:
         text = text.replace(tr_char, gr_char)
 
-    # Kelime sonundaki standart sigma -> ς
     text = re.sub(r"σ(?=[^\w]|$)", "ς", text)
     return text
 
 
 def greek_to_tr(text: str) -> str:
-    # 1. 'nd' ve 'γκ' (sert g) çözümü
+    # 1. 'nd' çözümü
     text = text.replace("Νντ", "Nd").replace("ΝΝΤ", "ND").replace("νντ", "nd")
-    text = text.replace("Γκ", "G").replace("γκ", "g")
 
     # 2. Diftong ve bileşik sesler
     compounds = [
@@ -111,9 +105,6 @@ def greek_to_tr(text: str) -> str:
         ("μπ", "b"),
         ("Μπ", "B"),
         ("ΜΠ", "B"),
-        ("ντ", "d"),
-        ("Ντ", "D"),
-        ("ΝΤ", "D"),
         ("τσ", "ç"),
         ("Τσ", "Ç"),
         ("ΤΣ", "Ç"),
@@ -124,19 +115,25 @@ def greek_to_tr(text: str) -> str:
     for gr, tr in compounds:
         text = text.replace(gr, tr)
 
-    # 3. 'ι' / 'Ι' -> 'y' çözümü (ünlü önünde veya arkasında yarı-ünlü ise)
+    # 3. 'ντ' -> 'd' çözümü (Türkçe fiil çekimleri ve ekler 'd' sesidir: eder, bakmadan, gider)
+    text = text.replace("Ντ", "D").replace("ντ", "d")
+
+    # 4. 'ι' / 'Ι' -> 'y' çözümü (ünlü yanındaki yarı-ünlüler)
     text = re.sub(r"\bΙ(?=[αεηοωυ])", "Y", text)
     text = re.sub(r"\bι(?=[αεηοωυ])", "y", text)
-    text = re.sub(r"(?<=[αεηοωυa-zçğıöşüA-ZÇĞİÖŞÜ])ι(?=[αεηοωυ])", "y", text)
-    text = re.sub(r"(?<=[αεηοωυa-zçğıöşüA-ZÇĞİÖŞÜ])ι\b", "y", text)
+    text = re.sub(r"(?<=[αεηοωυ])ι(?=[αεηοωυ])", "y", text)
+    text = re.sub(r"(?<=[αεηοωυ])ι\b", "y", text)
 
-    # 4. 'γ' çözümü:
-    # İki sesli arasında: 'ğ'
-    text = re.sub(r"(?<=[αεηιοωυa-zçğıöşüA-ZÇĞİÖŞÜ])γ(?=[αεηιοωυ])", "ğ", text)
-    # Kelime başı veya ünsüz yanı: 'g'
+    # 5. 'γ' çözümü:
+    # İnce ünlüler (υ, ε, ι, ω) önünde sert ses: 'g' (bugün, gibi, gözünün, gider)
+    text = re.sub(r"γ(?=[υειω])", "g", text)
+    text = re.sub(r"Γ(?=[υειω])", "G", text)
+    # Kalın ünlüler (α, η) arasında yumuşak ses: 'ğ' (çağımızdaki)
+    text = re.sub(r"(?<=[αη])γ(?=[αη])", "ğ", text)
+    # Kalan tekil 'γ' karakterleri 'g' olarak eşlenir
     text = text.replace("Γ", "G").replace("γ", "g")
 
-    # 5. Tekil harfler
+    # 6. Tekil standart harfler
     singles = [
         ("α", "a"),
         ("Α", "A"),
@@ -217,7 +214,8 @@ ttk.Label(root, text="Girdi Metni:").pack(anchor="w", padx=20)
 text_input = tk.Text(root, height=6, width=60)
 text_input.pack(padx=20, pady=(0, 10))
 
-ttk.Button(root, text="Çevir", command=on_translate).pack(pady=5)
+btn_translate = ttk.Button(root, text="Çevir", command=on_translate)
+btn_translate.pack(pady=5)
 
 ttk.Label(root, text="Sonuç:").pack(anchor="w", padx=20)
 text_output = tk.Text(root, height=6, width=60, state=tk.DISABLED, bg="#f3f3f3")
