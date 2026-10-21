@@ -4,20 +4,26 @@ from tkinter import ttk
 
 
 def tr_to_greek(text: str) -> str:
-    # 1. 'nd' bileşikleri (d ile karışmaması için 'νντ')
+    # 1. 'nd' ve 'nt' bileşikleri:
+    # 'nd' -> 'νντ' (d ile karışmaması için)
     text = re.sub(r"nd", "νντ", text)
     text = re.sub(r"Nd", "Νντ", text)
     text = re.sub(r"ND", "ΝΝΤ", text)
+
+    # 'nt' -> 'νθ' (Grekçede n arkasından gelen sert t sesini korur ve 'd'ye dönüşmesini engeller)
+    text = re.sub(r"nt", "νθ", text)
+    text = re.sub(r"Nt", "Νθ", text)
+    text = re.sub(r"NT", "ΝΘ", text)
 
     # 2. Diftonglar ve fonetik ikililer
     text = re.sub(r"(?i)va", "υα", text)
     text = re.sub(r"(?i)ev|ef", "ευ", text)
     text = re.sub(r"(?i)av\b|af\b", "αυ", text)
 
-    # 3. 'y' harfi -> 'ι' / 'Ι' (g sesi 'γ' ile çakışmayı önlemek için)
+    # 3. 'y' harfi -> 'ι' / 'Ι'
     text = text.replace("y", "ι").replace("Y", "Ι")
 
-    # 4. Standart harf eşlemeleri ('g' doğrudan 'γ')
+    # 4. Standart harf eşlemeleri
     mapping = [
         ("ç", "τσ"),
         ("Ç", "Τσ"),
@@ -85,8 +91,9 @@ def tr_to_greek(text: str) -> str:
 
 
 def greek_to_tr(text: str) -> str:
-    # 1. 'nd' çözümü
+    # 1. 'nd' ve 'nt' çözümü
     text = text.replace("Νντ", "Nd").replace("ΝΝΤ", "ND").replace("νντ", "nd")
+    text = text.replace("Νθ", "Nt").replace("ΝΘ", "NT").replace("νθ", "nt")
 
     # 2. Diftong ve bileşik sesler
     compounds = [
@@ -115,25 +122,25 @@ def greek_to_tr(text: str) -> str:
     for gr, tr in compounds:
         text = text.replace(gr, tr)
 
-    # 3. 'ντ' -> 'd' çözümü (Türkçe fiil çekimleri ve ekler 'd' sesidir: eder, bakmadan, gider)
+    # 3. 'ντ' -> 'd' çözümü
     text = text.replace("Ντ", "D").replace("ντ", "d")
 
-    # 4. 'ι' / 'Ι' -> 'y' çözümü (ünlü yanındaki yarı-ünlüler)
+    # 4. 'ι' / 'Ι' -> 'y' çözümü (ünlü komşusu yarı-ünlüler)
     text = re.sub(r"\bΙ(?=[αεηοωυ])", "Y", text)
     text = re.sub(r"\bι(?=[αεηοωυ])", "y", text)
     text = re.sub(r"(?<=[αεηοωυ])ι(?=[αεηοωυ])", "y", text)
     text = re.sub(r"(?<=[αεηοωυ])ι\b", "y", text)
 
     # 5. 'γ' çözümü:
-    # İnce ünlüler (υ, ε, ι, ω) önünde sert ses: 'g' (bugün, gibi, gözünün, gider)
+    # İnce ünlüler (υ, ε, ι, ω) önünde: 'g' (bugün, gibi, gözünün, gider)
     text = re.sub(r"γ(?=[υειω])", "g", text)
     text = re.sub(r"Γ(?=[υειω])", "G", text)
-    # Kalın ünlüler (α, η) arasında yumuşak ses: 'ğ' (çağımızdaki)
+    # Kalın ünlüler (α, η) arasında: 'ğ' (çağımızdaki)
     text = re.sub(r"(?<=[αη])γ(?=[αη])", "ğ", text)
-    # Kalan tekil 'γ' karakterleri 'g' olarak eşlenir
+    # Kalan 'γ': 'g'
     text = text.replace("Γ", "G").replace("γ", "g")
 
-    # 6. Tekil standart harfler
+    # 6. Tekil harfler
     singles = [
         ("α", "a"),
         ("Α", "A"),
