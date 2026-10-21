@@ -2,36 +2,31 @@ import re
 import tkinter as tk
 from tkinter import ttk
 
-VOWELS_TR = set("aeıioöuüAEIİOÖUÜαεηιοωυΑΕΗΙΟΩΥ")
-
 
 def tr_to_greek(text: str) -> str:
-    # 1. 'nd' bileşiği: 'n' + 'd' durumunda çift 'ν' oluşmasını engeller
-    text = re.sub(r"nd", "ντ", text, flags=re.IGNORECASE)
-    text = re.sub(r"Nd|ND", "Ντ", text)
+    # 1. 'nd' ve 'nt' bileşikleri (d ile karışmaması için)
+    text = re.sub(r"nd", "νντ", text)
+    text = re.sub(r"Nd", "Νντ", text)
+    text = re.sub(r"ND", "ΝΝΤ", text)
 
-    # 2. Fonetik diftonglar ve 'va' / 'ev' kuralları (kelime içi dahil)
+    # 2. İki ünlü arasındaki sert 'g' (ğ ile karışmaması için Grekçe 'γκ')
+    text = re.sub(r"(?<=[aeıioöuüAEIİOÖUÜ])g(?=[aeıioöuüAEIİOÖUÜ])", "γκ", text)
+    text = re.sub(r"(?<=[aeıioöuüAEIİOÖUÜ])G(?=[aeıioöuüAEIİOÖUÜ])", "Γκ", text)
+
+    # 3. Diftonglar ve fonetik ikililer
     text = re.sub(r"(?i)va", "υα", text)
     text = re.sub(r"(?i)ev|ef", "ευ", text)
     text = re.sub(r"(?i)av\b|af\b", "αυ", text)
 
-    # 3. 'y' harfi fonetik analizi (öncesinde sesli varsa 'ι', yoksa 'γ')
-    def replace_y(match):
-        idx = match.start()
-        prev_c = text[idx - 1] if idx > 0 else ""
-        is_upper = match.group(0).isupper()
-        if prev_c in VOWELS_TR:
-            return "Ι" if is_upper else "ι"
-        return "Γ" if is_upper else "γ"
+    # 4. 'y' harfi -> 'ι' / 'Ι' (g harfi olan 'γ' ile karışmaması için)
+    text = text.replace("y", "ι").replace("Y", "Ι")
 
-    text = re.sub(r"[yY]", replace_y, text)
-
-    # 4. Standart ve çift harf eşlemeleri
+    # 5. Standart harf eşlemeleri
     mapping = [
         ("ç", "τσ"),
         ("Ç", "Τσ"),
         ("c", "τζ"),
-        ("C", "Τζ"),
+        ("C", "Τz"),
         ("d", "ντ"),
         ("D", "Ντ"),
         ("b", "μπ"),
@@ -40,10 +35,10 @@ def tr_to_greek(text: str) -> str:
         ("U", "Ου"),
         ("ş", "ς"),
         ("Ş", "Σ"),
-        ("g", "γ"),
-        ("G", "Γ"),
         ("ğ", "γ"),
         ("Ğ", "Γ"),
+        ("g", "γ"),
+        ("G", "Γ"),
         ("ö", "ω"),
         ("Ö", "Ω"),
         ("o", "ο"),
@@ -89,45 +84,60 @@ def tr_to_greek(text: str) -> str:
     for tr_char, gr_char in mapping:
         text = text.replace(tr_char, gr_char)
 
-    # 5. Kelime sonu 'σ' harfini 'ς' yapma
+    # Kelime sonundaki standart sigma -> ς
     text = re.sub(r"σ(?=[^\w]|$)", "ς", text)
     return text
 
 
 def greek_to_tr(text: str) -> str:
-    rules = [
+    # 1. 'nd' ve 'γκ' (sert g) çözümü
+    text = text.replace("Νντ", "Nd").replace("ΝΝΤ", "ND").replace("νντ", "nd")
+    text = text.replace("Γκ", "G").replace("γκ", "g")
+
+    # 2. Diftong ve bileşik sesler
+    compounds = [
         ("ευ", "ev"),
-        ("ΕΥ", "EV"),
         ("Ευ", "Ev"),
+        ("ΕΥ", "EV"),
         ("αυ", "av"),
-        ("ΑΥ", "AV"),
         ("Αυ", "Av"),
+        ("ΑΥ", "AV"),
         ("υα", "va"),
-        ("ΥΑ", "VA"),
         ("Υα", "Va"),
+        ("ΥΑ", "VA"),
         ("ου", "u"),
-        ("ΟΥ", "U"),
         ("Ου", "U"),
-        ("ντ", "d"),
-        ("ΝΤ", "D"),
-        ("Ντ", "D"),
+        ("ΟΥ", "U"),
         ("μπ", "b"),
-        ("ΜΠ", "B"),
         ("Μπ", "B"),
+        ("ΜΠ", "B"),
+        ("ντ", "d"),
+        ("Ντ", "D"),
+        ("ΝΤ", "D"),
         ("τσ", "ç"),
-        ("ΤΣ", "Ç"),
         ("Τσ", "Ç"),
+        ("ΤΣ", "Ç"),
         ("τζ", "c"),
+        ("Τz", "C"),
         ("ΤΖ", "C"),
-        ("Τζ", "C"),
     ]
-    for gr_char, tr_char in rules:
-        text = text.replace(gr_char, tr_char)
+    for gr, tr in compounds:
+        text = text.replace(gr, tr)
 
-    text = re.sub(r"(?<=[aeıioöuüαεηιοωυ])ι", "y", text, flags=re.IGNORECASE)
-    text = re.sub(r"γ(?=[aeıioöuüαεηιοωυ])", "y", text, flags=re.IGNORECASE)
+    # 3. 'ι' / 'Ι' -> 'y' çözümü (ünlü önünde veya arkasında yarı-ünlü ise)
+    text = re.sub(r"\bΙ(?=[αεηοωυ])", "Y", text)
+    text = re.sub(r"\bι(?=[αεηοωυ])", "y", text)
+    text = re.sub(r"(?<=[αεηοωυa-zçğıöşüA-ZÇĞİÖŞÜ])ι(?=[αεηοωυ])", "y", text)
+    text = re.sub(r"(?<=[αεηοωυa-zçğıöşüA-ZÇĞİÖŞÜ])ι\b", "y", text)
 
-    single_rules = [
+    # 4. 'γ' çözümü:
+    # İki sesli arasında: 'ğ'
+    text = re.sub(r"(?<=[αεηιοωυa-zçğıöşüA-ZÇĞİÖŞÜ])γ(?=[αεηιοωυ])", "ğ", text)
+    # Kelime başı veya ünsüz yanı: 'g'
+    text = text.replace("Γ", "G").replace("γ", "g")
+
+    # 5. Tekil harfler
+    singles = [
         ("α", "a"),
         ("Α", "A"),
         ("β", "v"),
@@ -167,11 +177,9 @@ def greek_to_tr(text: str) -> str:
         ("Χ", "H"),
         ("ω", "ö"),
         ("Ω", "Ö"),
-        ("γ", "g"),
-        ("Γ", "G"),
     ]
-    for gr_char, tr_char in single_rules:
-        text = text.replace(gr_char, tr_char)
+    for gr, tr in singles:
+        text = text.replace(gr, tr)
 
     return text
 
