@@ -2,85 +2,102 @@ import re
 import tkinter as tk
 from tkinter import ttk
 
-VOWELS_TR = "aeıioöuüAEIİOÖUÜ"
-
 def tr_to_greek(text: str) -> str:
-    # 1. Öncelikli çoklu ses ve diftong dönüşümleri
-    compound_rules = [
-        (r'(?i)\bev', 'ευ'),
-        (r'(?i)\bef', 'ευ'),
-        (r'(?i)ev\b', 'ευ'),
-        (r'(?i)ef\b', 'ευ'),
-        (r'(?i)av\b', 'αυ'),
-        (r'(?i)af\b', 'αυ'),
-        (r'(?i)ç', 'τσ'),
-        (r'(?i)c', 'τζ'),
-        (r'(?i)d', 'ντ'),
-        (r'(?i)b', 'μπ'),
-        (r'(?i)u', 'ου'),
-        (r'(?i)ş', 'ς'),
-        (r'(?i)[gğ]', 'γ'),
-        (r'(?i)ö', 'ω'),
-        (r'(?i)o', 'ο'),
-        (r'(?i)ı', 'η'),
-        (r'(?i)i', 'ι'),
-        (r'(?i)h', 'χ'),
-    ]
-    for pattern, rep in compound_rules:
-        text = re.sub(pattern, rep, text)
+    # 1. Kelime sınırına bağlı diftonglar
+    text = re.sub(r'\b(ev|ef)\b', 'ευ', text, flags=re.IGNORECASE)
+    text = re.sub(r'(?<=\w)(ev|ef)\b', 'ευ', text, flags=re.IGNORECASE)
+    text = re.sub(r'\b(ev|ef)', 'ευ', text, flags=re.IGNORECASE)
+    text = re.sub(r'(av|af)\b', 'αυ', text, flags=re.IGNORECASE)
 
-    # 2. Fonetik 'y' analizi (diftong / ünsüz ayrımı)
+    # 2. Çoklu ünsüzler ve harf haritası
+    # 'y' harfi için bağlam analizi
     def replace_y(match):
         idx = match.start()
         prev_c = text[idx - 1] if idx > 0 else ''
-        if prev_c in "αεηιοωυΑΕΗΙΟΩΥ":
+        if prev_c.lower() in "aeıioöuüαεηιοωυ":
             return 'ι'
         return 'γ'
 
-    text = re.sub(r'(?i)y', replace_y, text)
+    text = re.sub(r'[yY]', replace_y, text)
 
-    # 3. Kalan standart harfler
-    single_rules = [
-        (r'(?i)a', 'α'), (r'(?i)e', 'ε'), (r'(?i)f', 'φ'),
-        (r'(?i)j', 'ζ'), (r'(?i)k', 'κ'), (r'(?i)l', 'λ'),
-        (r'(?i)m', 'μ'), (r'(?i)n', 'ν'), (r'(?i)p', 'π'),
-        (r'(?i)r', 'ρ'), (r'(?i)s', 'σ'), (r'(?i)t', 'τ'),
-        (r'(?i)ü', 'υ'), (r'(?i)v', 'β'), (r'(?i)z', 'ζ')
+    # Birebir ve çoklu eşleme tablosu (ı ve i kesin olarak ayrılmıştır)
+    mapping = [
+        ('ç', 'τσ'), ('Ç', 'ΤΣ'),
+        ('c', 'τζ'), ('C', 'ΤΖ'),
+        ('d', 'ντ'), ('D', 'ΝΤ'),
+        ('b', 'μπ'), ('B', 'ΜΠ'),
+        ('u', 'ου'), ('U', 'ΟΥ'),
+        ('ş', 'ς'),  ('Ş', 'Σ'),
+        ('g', 'γ'),  ('G', 'Γ'),
+        ('ğ', 'γ'),  ('Ğ', 'Γ'),
+        ('ö', 'ω'),  ('Ö', 'Ω'),
+        ('o', 'ο'),  ('O', 'Ο'),
+        ('ı', 'η'),  ('I', 'Η'),
+        ('i', 'ι'),  ('İ', 'Ι'),
+        ('h', 'χ'),  ('H', 'Χ'),
+        ('a', 'α'),  ('A', 'Α'),
+        ('e', 'ε'),  ('E', 'Ε'),
+        ('f', 'φ'),  ('F', 'Φ'),
+        ('j', 'ζ'),  ('J', 'Ζ'),
+        ('k', 'κ'),  ('K', 'Κ'),
+        ('l', 'λ'),  ('L', 'Λ'),
+        ('m', 'μ'),  ('M', 'Μ'),
+        ('n', 'ν'),  ('N', 'Ν'),
+        ('p', 'π'),  ('P', 'Π'),
+        ('r', 'ρ'),  ('R', 'Ρ'),
+        ('s', 'σ'),  ('S', 'Σ'),
+        ('t', 'τ'),  ('T', 'Τ'),
+        ('ü', 'υ'),  ('Ü', 'Υ'),
+        ('v', 'β'),  ('V', 'Β'),
+        ('z', 'ζ'),  ('Z', 'Ζ')
     ]
-    for pattern, rep in single_rules:
-        text = re.sub(pattern, rep, text)
 
-    # 4. Kelime sonundaki standart 'σ' harfini 'ς' yapma
+    for tr_char, gr_char in mapping:
+        text = text.replace(tr_char, gr_char)
+
+    # Kelime sonundaki standart 'σ' harfini 'ς' yapma
     text = re.sub(r'σ(?=[^\w]|$)', 'ς', text)
     return text
 
 def greek_to_tr(text: str) -> str:
-    # Çoklu karakterlerden tekillere doğru sıralı çözümleme
     rules = [
-        (r'(?i)ευ', 'ev'),
-        (r'(?i)αυ(?=[^\w]|$)', 'av'),
-        (r'(?i)ου', 'u'),
-        (r'(?i)ντ', 'd'),
-        (r'(?i)μπ', 'b'),
-        (r'(?i)τσ', 'ç'),
-        (r'(?i)τζ', 'c'),
-        # Diftong 'ι' -> 'y' (ünlüden sonra veya önce gelirse)
-        (r'(?<=[αεηιοω])ι', 'y'),
-        (r'ι(?=[αεηιοω])', 'y'),
-        # γ -> 'y' (ünlü öncesi sürtünmeli ses) veya 'g'
-        (r'γ(?=[αεηιοω])', 'y'),
-        (r'(?i)γ', 'g'),
-        # Standart sesler
-        (r'(?i)α', 'a'), (r'(?i)β', 'v'), (r'(?i)ε', 'e'),
-        (r'(?i)ζ', 'z'), (r'(?i)η', 'ı'), (r'(?i)ι', 'i'),
-        (r'(?i)κ', 'k'), (r'(?i)λ', 'l'), (r'(?i)μ', 'm'),
-        (r'(?i)ν', 'n'), (r'(?i)ο', 'o'), (r'(?i)π', 'p'),
-        (r'(?i)ρ', 'r'), (r'(?i)σ', 's'), (r'(?i)ς', 'ş'),
-        (r'(?i)τ', 't'), (r'(?i)υ', 'ü'), (r'(?i)φ', 'f'),
-        (r'(?i)χ', 'h'), (r'(?i)ω', 'ö')
+        ('ευ', 'ev'), ('ΕΥ', 'EV'),
+        ('αυ', 'av'), ('ΑΥ', 'AV'),
+        ('ου', 'u'),  ('ΟΥ', 'U'),
+        ('ντ', 'd'),  ('ΝΤ', 'D'),
+        ('μπ', 'b'),  ('ΜΠ', 'B'),
+        ('τσ', 'ç'),  ('ΤΣ', 'Ç'),
+        ('τζ', 'c'),  ('ΤΖ', 'C'),
+        ('α', 'a'),   ('Α', 'A'),
+        ('β', 'v'),   ('Β', 'V'),
+        ('ε', 'e'),   ('Ε', 'E'),
+        ('ζ', 'z'),   ('Ζ', 'Z'),
+        ('η', 'ı'),   ('Η', 'I'),
+        ('ι', 'i'),   ('Ι', 'İ'),
+        ('κ', 'k'),   ('Κ', 'K'),
+        ('λ', 'l'),   ('Λ', 'L'),
+        ('μ', 'm'),   ('Μ', 'M'),
+        ('ν', 'n'),   ('Ν', 'N'),
+        ('ο', 'o'),   ('Ο', 'O'),
+        ('π', 'p'),   ('Π', 'P'),
+        ('ρ', 'r'),   ('Ρ', 'R'),
+        ('σ', 's'),   ('Σ', 'S'),
+        ('ς', 'ş'),
+        ('τ', 't'),   ('Τ', 'T'),
+        ('υ', 'ü'),   ('Υ', 'Ü'),
+        ('φ', 'f'),   ('Φ', 'F'),
+        ('χ', 'h'),   ('Χ', 'H'),
+        ('ω', 'ö'),   ('Ω', 'Ö'),
+        ('γ', 'g'),   ('Γ', 'G')
     ]
-    for pattern, rep in rules:
-        text = re.sub(pattern, rep, text)
+
+    # Grekçe diftong 'ι' ve sesli öncesi 'γ' çözümlemeleri
+    text = re.sub(r'(?<=[αεηιοω])ι', 'y', text)
+    text = re.sub(r'γ(?=[αεηιοω])', 'y', text)
+
+    for gr_char, tr_char in rules:
+        text = text.replace(gr_char, tr_char)
+
     return text
 
 def on_translate():
